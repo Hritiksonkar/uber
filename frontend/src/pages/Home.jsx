@@ -42,52 +42,71 @@ const Home = () => {
     const { user } = useContext(UserDataContext)
 
     useEffect(() => {
-        socket.emit("join", { userType: "user", userId: user._id })
-    }, [user])
+        if (!socket || !user?._id) return;
 
-    socket.on('ride-confirmed', ride => {
+        socket.emit('join', { userType: 'user', userId: user._id });
 
+        const onRideConfirmed = (ride) => {
+            setVehicleFound(false);
+            setWaitingForDriver(true);
+            setRide(ride);
+        };
 
-        setVehicleFound(false)
-        setWaitingForDriver(true)
-        setRide(ride)
-    })
+        const onRideStarted = (ride) => {
+            setWaitingForDriver(false);
+            navigate('/riding', { state: { ride } });
+        };
 
-    socket.on('ride-started', ride => {
-        console.log("ride")
-        setWaitingForDriver(false)
-        navigate('/riding', { state: { ride } }) // Updated navigate to include ride data
-    })
+        socket.on('ride-confirmed', onRideConfirmed);
+        socket.on('ride-started', onRideStarted);
+
+        return () => {
+            socket.off('ride-confirmed', onRideConfirmed);
+            socket.off('ride-started', onRideStarted);
+        };
+    }, [socket, user?._id, navigate])
 
 
     const handlePickupChange = async (e) => {
-        setPickup(e.target.value)
+        const value = e.target.value;
+        setPickup(value)
+
+        if (value.trim().length < 2) {
+            setPickupSuggestions([]);
+            return;
+        }
         try {
             const response = await axios.get(`${API_BASE_URL}/maps/get-suggestions`, {
-                params: { input: e.target.value },
+                params: { input: value },
                 headers: {
                     Authorization: `Bearer ${localStorage.getItem('token')}`
                 }
 
             })
             setPickupSuggestions(response.data)
-        } catch {
-            // handle error
+        } catch (err) {
+            console.error('Pickup suggestions failed:', err?.response?.data?.message || err?.message);
         }
     }
 
     const handleDestinationChange = async (e) => {
-        setDestination(e.target.value)
+        const value = e.target.value;
+        setDestination(value)
+
+        if (value.trim().length < 2) {
+            setDestinationSuggestions([]);
+            return;
+        }
         try {
             const response = await axios.get(`${API_BASE_URL}/maps/get-suggestions`, {
-                params: { input: e.target.value },
+                params: { input: value },
                 headers: {
                     Authorization: `Bearer ${localStorage.getItem('token')}`
                 }
             })
             setDestinationSuggestions(response.data)
-        } catch {
-            // handle error
+        } catch (err) {
+            console.error('Destination suggestions failed:', err?.response?.data?.message || err?.message);
         }
     }
 

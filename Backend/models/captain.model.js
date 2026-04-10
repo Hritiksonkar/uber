@@ -66,8 +66,23 @@ const captainSchema = new mongoose.Schema({
         lng: {
             type: Number,
         }
+    },
+
+    // GeoJSON point for efficient radius/near queries (kept alongside legacy location.ltd/lng)
+    locationGeo: {
+        type: {
+            type: String,
+            enum: [ 'Point' ],
+            default: 'Point'
+        },
+        coordinates: {
+            type: [ Number ],
+            default: undefined
+        }
     }
 })
+
+captainSchema.index({ locationGeo: '2dsphere' });
 
 
 captainSchema.methods.generateAuthToken = function () {

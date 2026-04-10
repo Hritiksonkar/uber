@@ -10,13 +10,21 @@ const socket = io(SOCKET_URL);
 const SocketProvider = ({ children }) => {
     useEffect(() => {
         // Basic connection logic
-        socket.on('connect', () => {
+        const onConnect = () => {
             console.log('Connected to server');
-        });
+        };
 
-        socket.on('disconnect', () => {
+        const onDisconnect = () => {
             console.log('Disconnected from server');
-        });
+        };
+
+        socket.on('connect', onConnect);
+        socket.on('disconnect', onDisconnect);
+
+        return () => {
+            socket.off('connect', onConnect);
+            socket.off('disconnect', onDisconnect);
+        };
 
     }, []);
 

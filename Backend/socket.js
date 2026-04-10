@@ -17,7 +17,11 @@ function initializeSocket(server) {
 
 
         socket.on('join', async (data) => {
-            const { userId, userType } = data;
+            const { userId, userType } = data || {};
+
+            if (!userId || !userType) {
+                return;
+            }
 
             if (userType === 'user') {
                 await userModel.findByIdAndUpdate(userId, { socketId: socket.id });
@@ -28,16 +32,23 @@ function initializeSocket(server) {
 
 
         socket.on('update-location-captain', async (data) => {
-            const { userId, location } = data;
+            const { userId, location } = data || {};
 
-            if (!location || !location.ltd || !location.lng) {
+            const ltd = location?.ltd ?? location?.lat;
+            const lng = location?.lng;
+
+            if (!userId || !Number.isFinite(ltd) || !Number.isFinite(lng)) {
                 return socket.emit('error', { message: 'Invalid location data' });
             }
 
             await captainModel.findByIdAndUpdate(userId, {
                 location: {
-                    ltd: location.ltd,
-                    lng: location.lng
+                    ltd,
+                    lng
+                },
+                locationGeo: {
+                    type: 'Point',
+                    coordinates: [ lng, ltd ]
                 }
             });
         });

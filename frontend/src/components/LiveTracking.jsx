@@ -14,47 +14,40 @@ const center = {
 const LiveTracking = () => {
     const [ currentPosition, setCurrentPosition ] = useState(center);
 
-    useEffect(() => {
-        navigator.geolocation.getCurrentPosition((position) => {
-            const { latitude, longitude } = position.coords;
-            setCurrentPosition({
-                lat: latitude,
-                lng: longitude
-            });
-        });
-
-        const watchId = navigator.geolocation.watchPosition((position) => {
-            const { latitude, longitude } = position.coords;
-            setCurrentPosition({
-                lat: latitude,
-                lng: longitude
-            });
-        });
-
-        return () => navigator.geolocation.clearWatch(watchId);
-    }, []);
+    const googleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
     useEffect(() => {
-        const updatePosition = () => {
-            navigator.geolocation.getCurrentPosition((position) => {
-                const { latitude, longitude } = position.coords;
+        if (!navigator.geolocation) return;
 
-                console.log('Position updated:', latitude, longitude);
-                setCurrentPosition({
-                    lat: latitude,
-                    lng: longitude
-                });
-            });
+        const setFromPosition = (position) => {
+            const { latitude, longitude } = position.coords;
+            setCurrentPosition({ lat: latitude, lng: longitude });
         };
 
-        updatePosition(); // Initial position update
+        navigator.geolocation.getCurrentPosition(setFromPosition);
+        const watchId = navigator.geolocation.watchPosition(setFromPosition);
 
-        const intervalId = setInterval(updatePosition, 1000); // Update every 10 seconds
+        // Fallback polling (some devices stop emitting watchPosition reliably)
+        const intervalId = setInterval(() => {
+            navigator.geolocation.getCurrentPosition(setFromPosition);
+        }, 10000);
 
+        return () => {
+            navigator.geolocation.clearWatch(watchId);
+            clearInterval(intervalId);
+        };
     }, []);
 
+    if (!googleMapsApiKey) {
+        return (
+            <div className='h-full w-full flex items-center justify-center p-4 text-center'>
+                Google Maps API key missing. Add <code>VITE_GOOGLE_MAPS_API_KEY</code> in <code>frontend/.env</code> and restart the dev server.
+            </div>
+        );
+    }
+
     return (
-        <LoadScript googleMapsApiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}>
+        <LoadScript googleMapsApiKey={googleMapsApiKey}>
             <GoogleMap
                 mapContainerStyle={containerStyle}
                 center={currentPosition}

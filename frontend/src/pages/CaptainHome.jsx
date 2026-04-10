@@ -24,37 +24,42 @@ const CaptainHome = () => {
     const { captain } = useContext(CaptainDataContext)
 
     useEffect(() => {
+        if (!socket || !captain?._id) return;
+
         socket.emit('join', {
             userId: captain._id,
             userType: 'captain'
-        })
+        });
+
         const updateLocation = () => {
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(position => {
+            if (!navigator.geolocation) return;
 
-                    socket.emit('update-location-captain', {
-                        userId: captain._id,
-                        location: {
-                            ltd: position.coords.latitude,
-                            lng: position.coords.longitude
-                        }
-                    })
-                })
-            }
-        }
+            navigator.geolocation.getCurrentPosition((position) => {
+                socket.emit('update-location-captain', {
+                    userId: captain._id,
+                    location: {
+                        ltd: position.coords.latitude,
+                        lng: position.coords.longitude
+                    }
+                });
+            });
+        };
 
-        const locationInterval = setInterval(updateLocation, 10000)
-        updateLocation()
+        const locationInterval = setInterval(updateLocation, 10000);
+        updateLocation();
 
-        // return () => clearInterval(locationInterval)
-    }, [])
+        const onNewRide = (data) => {
+            setRide(data);
+            setRidePopupPanel(true);
+        };
 
-    socket.on('new-ride', (data) => {
+        socket.on('new-ride', onNewRide);
 
-        setRide(data)
-        setRidePopupPanel(true)
-
-    })
+        return () => {
+            clearInterval(locationInterval);
+            socket.off('new-ride', onNewRide);
+        };
+    }, [socket, captain?._id])
 
     async function confirmRide() {
 

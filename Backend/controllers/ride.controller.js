@@ -3,6 +3,7 @@ const { validationResult } = require('express-validator');
 const mapService = require('../services/maps.service');
 const { sendMessageToSocketId } = require('../socket');
 const rideModel = require('../models/ride.model');
+const captainModel = require('../models/captain.model');
 
 
 module.exports.createRide = async (req, res) => {
@@ -17,29 +18,44 @@ module.exports.createRide = async (req, res) => {
         const ride = await rideService.createRide({ user: req.user._id, pickup, destination, vehicleType });
         res.status(201).json(ride);
 
-        const pickupCoordinates = await mapService.getAddressCoordinate(pickup);
+        // Notify captains asynchronously; do not fail the HTTP request if maps/socket steps fail.
+        (async () => {
+            try {
+                let captainsInRadius = [];
+                try {
+                    const pickupCoordinates = await mapService.getAddressCoordinate(pickup);
+                    captainsInRadius = await mapService.getCaptainsInTheRadius(
+                        pickupCoordinates.ltd,
+                        pickupCoordinates.lng,
+                        2
+                    );
+                } catch (geoErr) {
+                    // If Geocoding API isn't enabled, fall back to notifying all connected captains.
+                    console.warn('Pickup geocoding failed; falling back to connected captains:', geoErr?.message || geoErr);
+                    captainsInRadius = await captainModel.find({ socketId: { $exists: true, $ne: null } });
+                }
 
+                const rideWithUser = await rideModel.findOne({ _id: ride._id }).populate('user');
+                if (!rideWithUser) return;
 
-
-        const captainsInRadius = await mapService.getCaptainsInTheRadius(pickupCoordinates.ltd, pickupCoordinates.lng, 2);
-
-        ride.otp = ""
-
-        const rideWithUser = await rideModel.findOne({ _id: ride._id }).populate('user');
-
-        captainsInRadius.map(captain => {
-
-            sendMessageToSocketId(captain.socketId, {
-                event: 'new-ride',
-                data: rideWithUser
-            })
-
-        })
+                captainsInRadius
+                    .filter((captain) => captain && captain.socketId)
+                    .forEach((captain) => {
+                        sendMessageToSocketId(captain.socketId, {
+                            event: 'new-ride',
+                            data: rideWithUser
+                        });
+                    });
+            } catch (notifyErr) {
+                console.error('Failed to notify captains for new ride:', notifyErr?.message || notifyErr);
+            }
+        })();
 
     } catch (err) {
-
         console.log(err);
-        return res.status(500).json({ message: err.message });
+        if (!res.headersSent) {
+            return res.status(500).json({ message: err.message });
+        }
     }
 
 };
