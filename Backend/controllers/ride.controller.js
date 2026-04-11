@@ -12,10 +12,17 @@ module.exports.createRide = async (req, res) => {
         return res.status(400).json({ errors: errors.array() });
     }
 
-    const { userId, pickup, destination, vehicleType } = req.body;
+    const { userId, pickup, destination, vehicleType, pickupPlaceId, destinationPlaceId } = req.body;
 
     try {
-        const ride = await rideService.createRide({ user: req.user._id, pickup, destination, vehicleType });
+        const ride = await rideService.createRide({
+            user: req.user._id,
+            pickup,
+            destination,
+            vehicleType,
+            pickupPlaceId,
+            destinationPlaceId
+        });
         res.status(201).json(ride);
 
         // Notify captains asynchronously; do not fail the HTTP request if maps/socket steps fail.
@@ -23,12 +30,21 @@ module.exports.createRide = async (req, res) => {
             try {
                 let captainsInRadius = [];
                 try {
-                    const pickupCoordinates = await mapService.getAddressCoordinate(pickup);
+                    const pickupCoordinates = await mapService.getAddressCoordinate({
+                        address: pickup,
+                        placeId: pickupPlaceId
+                    });
                     captainsInRadius = await mapService.getCaptainsInTheRadius(
                         pickupCoordinates.ltd,
                         pickupCoordinates.lng,
                         2
                     );
+
+                    // If no captains match the radius (often because captains haven't shared GPS yet),
+                    // fall back to all connected captains so the system still works in dev.
+                    if (!Array.isArray(captainsInRadius) || captainsInRadius.length === 0) {
+                        captainsInRadius = await captainModel.find({ socketId: { $exists: true, $ne: null } });
+                    }
                 } catch (geoErr) {
                     // If Geocoding API isn't enabled, fall back to notifying all connected captains.
                     console.warn('Pickup geocoding failed; falling back to connected captains:', geoErr?.message || geoErr);
@@ -66,10 +82,10 @@ module.exports.getFare = async (req, res) => {
         return res.status(400).json({ errors: errors.array() });
     }
 
-    const { pickup, destination } = req.query;
+    const { pickup, destination, pickupPlaceId, destinationPlaceId } = req.query;
 
     try {
-        const fare = await rideService.getFare(pickup, destination);
+        const fare = await rideService.getFare(pickup, destination, pickupPlaceId, destinationPlaceId);
         return res.status(200).json(fare);
     } catch (err) {
         return res.status(500).json({ message: err.message });
@@ -145,5 +161,5 @@ module.exports.endRide = async (req, res) => {
         return res.status(200).json(ride);
     } catch (err) {
         return res.status(500).json({ message: err.message });
-    } s
+    }
 }

@@ -3,13 +3,24 @@ const mapService = require('./maps.service');
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 
-async function getFare(pickup, destination) {
+async function getFare(pickup, destination, pickupPlaceId, destinationPlaceId) {
 
     if (!pickup || !destination) {
         throw new Error('Pickup and destination are required');
     }
 
-    const distanceTime = await mapService.getDistanceTime(pickup, destination);
+    let distanceTime;
+    try {
+        distanceTime = await mapService.getDistanceTime({
+            origin: pickup,
+            destination,
+            originPlaceId: pickupPlaceId,
+            destinationPlaceId
+        });
+    } catch (err) {
+        console.warn('Distance/time lookup failed:', err?.message || err);
+        throw err;
+    }
 
     const baseFare = {
         auto: 30,
@@ -55,13 +66,13 @@ function getOtp(num) {
 
 
 module.exports.createRide = async ({
-    user, pickup, destination, vehicleType
+    user, pickup, destination, vehicleType, pickupPlaceId, destinationPlaceId
 }) => {
     if (!user || !pickup || !destination || !vehicleType) {
         throw new Error('All fields are required');
     }
 
-    const fare = await getFare(pickup, destination);
+    const fare = await getFare(pickup, destination, pickupPlaceId, destinationPlaceId);
 
 
 
@@ -70,7 +81,7 @@ module.exports.createRide = async ({
         pickup,
         destination,
         otp: getOtp(6),
-        fare: fare[ vehicleType ]
+        fare: fare[vehicleType]
     })
 
     return ride;

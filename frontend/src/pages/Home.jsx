@@ -18,6 +18,8 @@ import { API_BASE_URL } from '../config';
 const Home = () => {
     const [pickup, setPickup] = useState('')
     const [destination, setDestination] = useState('')
+    const [pickupPlaceId, setPickupPlaceId] = useState(null)
+    const [destinationPlaceId, setDestinationPlaceId] = useState(null)
     const [panelOpen, setPanelOpen] = useState(false)
     const vehiclePanelRef = useRef(null)
     const confirmRidePanelRef = useRef(null)
@@ -70,6 +72,7 @@ const Home = () => {
     const handlePickupChange = async (e) => {
         const value = e.target.value;
         setPickup(value)
+        setPickupPlaceId(null)
 
         if (value.trim().length < 2) {
             setPickupSuggestions([]);
@@ -92,6 +95,7 @@ const Home = () => {
     const handleDestinationChange = async (e) => {
         const value = e.target.value;
         setDestination(value)
+        setDestinationPlaceId(null)
 
         if (value.trim().length < 2) {
             setDestinationSuggestions([]);
@@ -191,7 +195,12 @@ const Home = () => {
         setPanelOpen(false)
 
         const response = await axios.get(`${API_BASE_URL}/rides/get-fare`, {
-            params: { pickup, destination },
+            params: {
+                pickup,
+                destination,
+                pickupPlaceId: pickupPlaceId || undefined,
+                destinationPlaceId: destinationPlaceId || undefined
+            },
             headers: {
                 Authorization: `Bearer ${localStorage.getItem('token')}`
             }
@@ -207,7 +216,9 @@ const Home = () => {
         const response = await axios.post(`${API_BASE_URL}/rides/create`, {
             pickup,
             destination,
-            vehicleType
+            vehicleType,
+            pickupPlaceId: pickupPlaceId || undefined,
+            destinationPlaceId: destinationPlaceId || undefined
         }, {
             headers: {
                 Authorization: `Bearer ${localStorage.getItem('token')}`
@@ -271,6 +282,8 @@ const Home = () => {
                         setVehiclePanel={setVehiclePanel}
                         setPickup={setPickup}
                         setDestination={setDestination}
+                        setPickupPlaceId={setPickupPlaceId}
+                        setDestinationPlaceId={setDestinationPlaceId}
                         activeField={activeField}
                     />
                 </div>

@@ -9,6 +9,8 @@ router.post('/create',
     authMiddleware.authUser,
     body('pickup').isString().isLength({ min: 3 }).withMessage('Invalid pickup address'),
     body('destination').isString().isLength({ min: 3 }).withMessage('Invalid destination address'),
+    body('pickupPlaceId').optional().isString().isLength({ min: 3 }).withMessage('Invalid pickup placeId'),
+    body('destinationPlaceId').optional().isString().isLength({ min: 3 }).withMessage('Invalid destination placeId'),
     body('vehicleType').isString().isIn([ 'auto', 'car', 'moto' ]).withMessage('Invalid vehicle type'),
     rideController.createRide
 )
@@ -17,6 +19,8 @@ router.get('/get-fare',
     authMiddleware.authUser,
     query('pickup').isString().isLength({ min: 3 }).withMessage('Invalid pickup address'),
     query('destination').isString().isLength({ min: 3 }).withMessage('Invalid destination address'),
+    query('pickupPlaceId').optional().isString().isLength({ min: 3 }).withMessage('Invalid pickup placeId'),
+    query('destinationPlaceId').optional().isString().isLength({ min: 3 }).withMessage('Invalid destination placeId'),
     rideController.getFare
 )
 

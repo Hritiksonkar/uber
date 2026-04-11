@@ -1,6 +1,16 @@
 const path = require('path');
-const dotenv = require('dotenv');
-dotenv.config({ path: path.resolve(__dirname, '.env') });
+let dotenv;
+try {
+    dotenv = require('dotenv');
+    dotenv.config({ path: path.resolve(__dirname, '.env') });
+} catch (err) {
+    // Allows the app to still run in environments where env vars are injected
+    // (and provides a clearer hint for local dev if node_modules isn't installed).
+    console.warn(
+        'dotenv is not available. If you are running locally, run `npm install` in the Backend folder. ' +
+        'If running in production, ensure environment variables are provided by the host.'
+    );
+}
 const express = require('express');
 const cors = require('cors');
 const app = express();

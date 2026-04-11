@@ -1,30 +1,21 @@
 
 import React, { createContext, useEffect } from 'react';
 import { io } from 'socket.io-client';
-import { SOCKET_URL } from '../config';
 
 export const SocketContext = createContext();
 
-const socket = io(SOCKET_URL);
+const socket = io(`${import.meta.env.VITE_BASE_URL}`); // Replace with your server URL
 
 const SocketProvider = ({ children }) => {
     useEffect(() => {
         // Basic connection logic
-        const onConnect = () => {
+        socket.on('connect', () => {
             console.log('Connected to server');
-        };
+        });
 
-        const onDisconnect = () => {
+        socket.on('disconnect', () => {
             console.log('Disconnected from server');
-        };
-
-        socket.on('connect', onConnect);
-        socket.on('disconnect', onDisconnect);
-
-        return () => {
-            socket.off('connect', onConnect);
-            socket.off('disconnect', onDisconnect);
-        };
+        });
 
     }, []);
 
