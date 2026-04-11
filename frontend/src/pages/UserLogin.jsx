@@ -6,9 +6,9 @@ import axios from 'axios'
 import { API_BASE_URL } from '../config'
 
 const UserLogin = () => {
-  const [ email, setEmail ] = useState('')
-  const [ password, setPassword ] = useState('')
-  const [ userData, setUserData ] = useState({})
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [userData, setUserData] = useState({})
 
   const { user, setUser } = useContext(UserDataContext)
   const navigate = useNavigate()
