@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
@@ -8,9 +8,10 @@ const containerStyle = {
     height: '100%',
 };
 
+// Default center (Delhi) until geolocation resolves.
 const center = {
-    lat: -3.745,
-    lng: -38.523
+    lat: 28.6139,
+    lng: 77.2090
 };
 
 const markerIcon = new L.Icon({
@@ -35,22 +36,6 @@ const RecenterOnPosition = ({ position }) => {
 const LiveTracking = () => {
     const [currentPosition, setCurrentPosition] = useState(center);
 
-    // Mappls key is used for tile requests (Advanced Maps tile API).
-    // Env name kept flexible.
-    const mapplsKey = (import.meta.env.VITE_MAPPLS_MAPS_API || import.meta.env.VITE_MAPPLS_REST_KEY || '').trim();
-
-    const tileUrl = useMemo(() => {
-        if (!mapplsKey) return '';
-        // Common Mappls/MapmyIndia tile URL pattern (may vary by account/plan).
-        // If your plan uses a different pattern, set VITE_MAPPLS_TILE_URL in .env.
-        const override = (import.meta.env.VITE_MAPPLS_TILE_URL || '').trim();
-        if (override) {
-            return override
-                .replace('{key}', encodeURIComponent(mapplsKey));
-        }
-        return `https://apis.mappls.com/advancedmaps/v1/${encodeURIComponent(mapplsKey)}/map_tile/{z}/{x}/{y}.png`;
-    }, [mapplsKey]);
-
     useEffect(() => {
         if (!navigator.geolocation) return;
 
@@ -73,14 +58,6 @@ const LiveTracking = () => {
         };
     }, []);
 
-    if (!mapplsKey) {
-        return (
-            <div className='h-full w-full flex items-center justify-center p-4 text-center'>
-                Mappls key missing. Add <code>VITE_MAPPLS_MAPS_API</code> (or <code>VITE_MAPPLS_REST_KEY</code>) in <code>frontend/.env</code> and restart the dev server.
-            </div>
-        );
-    }
-
     return (
         <div style={containerStyle}>
             <MapContainer
@@ -91,7 +68,8 @@ const LiveTracking = () => {
             >
                 <RecenterOnPosition position={currentPosition} />
                 <TileLayer
-                    url={tileUrl}
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 />
                 <Marker
                     position={[currentPosition.lat, currentPosition.lng]}

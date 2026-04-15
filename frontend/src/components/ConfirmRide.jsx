@@ -1,6 +1,22 @@
-import React from 'react'
+import React, { useState } from 'react'
 
 const ConfirmRide = (props) => {
+    const [isSubmitting, setIsSubmitting] = useState(false)
+
+    const handleConfirm = async () => {
+        if (isSubmitting) return
+        setIsSubmitting(true)
+        try {
+            if (typeof props.createRide === 'function') {
+                await props.createRide()
+            }
+            props.setVehicleFound(true)
+            props.setConfirmRidePanel(false)
+        } finally {
+            setIsSubmitting(false)
+        }
+    }
+
     return (
         <div>
             <h5 className='p-1 text-center w-[93%] absolute top-0' onClick={() => {
@@ -33,12 +49,13 @@ const ConfirmRide = (props) => {
                         </div>
                     </div>
                 </div>
-                <button onClick={() => {
-                    props.setVehicleFound(true)
-                    props.setConfirmRidePanel(false)
-                    props.createRide()
-
-                }} className='w-full mt-5 bg-green-600 text-white font-semibold p-2 rounded-lg'>Confirm</button>
+                <button
+                    onClick={handleConfirm}
+                    disabled={isSubmitting}
+                    className='w-full mt-5 bg-green-600 disabled:opacity-60 text-white font-semibold p-2 rounded-lg'
+                >
+                    {isSubmitting ? 'Booking...' : 'Confirm'}
+                </button>
             </div>
         </div>
     )

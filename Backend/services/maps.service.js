@@ -1,6 +1,136 @@
 const axios = require('axios');
 const captainModel = require('../models/captain.model');
 
+// OpenStreetMap fallbacks (no API key required)
+// - Nominatim: autocomplete/geocode
+// - OSRM public server: routing (distance/time)
+const OSM_NOMINATIM_SEARCH_URL = 'https://nominatim.openstreetmap.org/search';
+const OSM_OSRM_ROUTE_URL = 'https://router.project-osrm.org/route/v1/driving';
+
+const getOsmUserAgent = () => {
+    // Nominatim usage policy requires a valid User-Agent.
+    // Provide a configurable UA to avoid being blocked.
+    const ua = (process.env.OSM_USER_AGENT || 'uber-clone-dev').trim();
+    return ua || 'uber-clone-dev';
+};
+
+const parseLatLngPlaceId = (placeId) => {
+    if (typeof placeId !== 'string') return null;
+    const trimmed = placeId.trim();
+    // Format: "lat,lng" (e.g. "28.6139,77.2090")
+    const m = trimmed.match(/^(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)$/);
+    if (!m) return null;
+    const lat = Number(m[1]);
+    const lng = Number(m[2]);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+    return { ltd: lat, lng };
+};
+
+const osmAutocomplete = async (input) => {
+    const query = String(input || '').trim();
+    if (!query) return [];
+
+    const response = await axios.get(OSM_NOMINATIM_SEARCH_URL, {
+        params: {
+            q: query,
+            format: 'jsonv2',
+            addressdetails: 1,
+            limit: 6
+        },
+        headers: {
+            'User-Agent': getOsmUserAgent()
+        }
+    });
+
+    const rows = Array.isArray(response.data) ? response.data : [];
+    return rows
+        .map((r) => {
+            const displayName = typeof r?.display_name === 'string' ? r.display_name.trim() : '';
+            const lat = typeof r?.lat === 'string' ? Number(r.lat) : Number(r?.lat);
+            const lon = typeof r?.lon === 'string' ? Number(r.lon) : Number(r?.lon);
+            if (!displayName || !Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+            // Encode coordinates as "placeId" to avoid another lookup later.
+            return { description: displayName, placeId: `${lat},${lon}` };
+        })
+        .filter(Boolean);
+};
+
+const osmGeocode = async ({ address }) => {
+    const query = String(address || '').trim();
+    if (!query) {
+        const e = new Error('address is required');
+        e.status = 400;
+        throw e;
+    }
+
+    const response = await axios.get(OSM_NOMINATIM_SEARCH_URL, {
+        params: {
+            q: query,
+            format: 'jsonv2',
+            addressdetails: 1,
+            limit: 1
+        },
+        headers: {
+            'User-Agent': getOsmUserAgent()
+        }
+    });
+
+    const first = Array.isArray(response.data) ? response.data[0] : null;
+    const lat = typeof first?.lat === 'string' ? Number(first.lat) : Number(first?.lat);
+    const lon = typeof first?.lon === 'string' ? Number(first.lon) : Number(first?.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+        const e = new Error('Unable to fetch coordinates');
+        e.status = 404;
+        throw e;
+    }
+    return { ltd: lat, lng: lon };
+};
+
+const osmRoute = async ({ originCoord, destCoord }) => {
+    const oLat = Number(originCoord?.ltd);
+    const oLng = Number(originCoord?.lng);
+    const dLat = Number(destCoord?.ltd);
+    const dLng = Number(destCoord?.lng);
+
+    if (![oLat, oLng, dLat, dLng].every(Number.isFinite)) {
+        const e = new Error('Invalid coordinates');
+        e.status = 400;
+        throw e;
+    }
+
+    // OSRM expects lon,lat
+    const url = `${OSM_OSRM_ROUTE_URL}/${oLng},${oLat};${dLng},${dLat}`;
+    const response = await axios.get(url, {
+        params: {
+            overview: 'false'
+        },
+        headers: {
+            'User-Agent': getOsmUserAgent()
+        }
+    });
+
+    const route = response.data?.routes?.[0];
+    const distanceMeters = Number(route?.distance);
+    const durationSeconds = Number(route?.duration);
+    if (!Number.isFinite(distanceMeters) || !Number.isFinite(durationSeconds)) {
+        const e = new Error('Unable to fetch distance and time');
+        e.status = 502;
+        throw e;
+    }
+
+    return {
+        distance: {
+            value: Math.round(distanceMeters),
+            text: `${(distanceMeters / 1000).toFixed(1)} km`
+        },
+        duration: {
+            value: Math.round(durationSeconds),
+            text: `${Math.max(1, Math.round(durationSeconds / 60))} mins`
+        },
+        status: 'OK'
+    };
+};
+
 const getGoogleApiKey = () => {
     const key = (process.env.GOOGLE_MAPS_API_KEY || process.env.GOOGLE_API_KEY || '').trim();
     return key;
@@ -337,6 +467,12 @@ module.exports.getAddressCoordinate = async (address) => {
         throw new Error('address or placeId is required');
     }
 
+    // If we received a "placeId" that is actually coordinates ("lat,lng"), use it directly.
+    const coordFromPlaceId = parseLatLngPlaceId(placeIdValue);
+    if (coordFromPlaceId) {
+        return coordFromPlaceId;
+    }
+
     // If Mappls OAuth isn't configured but Google is, use Google Geocoding.
     if (!hasMapplsOAuthCredentials()) {
         const googleKey = getGoogleApiKey();
@@ -346,6 +482,11 @@ module.exports.getAddressCoordinate = async (address) => {
             } catch (err) {
                 throw toGoogleApiError(err, 'Unable to fetch coordinates');
             }
+        }
+
+        // No Mappls OAuth + no Google key => use OSM geocode (address only).
+        if (addressValue) {
+            return await osmGeocode({ address: addressValue });
         }
     }
 
@@ -439,7 +580,7 @@ module.exports.getDistanceTime = async (origin, destination) => {
         throw new Error('Origin and destination are required');
     }
 
-    // If Mappls REST key isn't configured but Google is, use Google Distance Matrix.
+    // If Mappls REST key isn't configured, prefer Google if available, else OSRM.
     if (!hasMapplsRestKey()) {
         const googleKey = getGoogleApiKey();
         if (googleKey) {
@@ -454,6 +595,10 @@ module.exports.getDistanceTime = async (origin, destination) => {
                 throw toGoogleApiError(err, 'Unable to fetch distance and time');
             }
         }
+
+        const originCoord = parseLatLngPlaceId(originPlaceId) || (originAddress ? await osmGeocode({ address: originAddress }) : null);
+        const destCoord = parseLatLngPlaceId(destinationPlaceId) || (destinationAddress ? await osmGeocode({ address: destinationAddress }) : null);
+        return await osmRoute({ originCoord, destCoord });
     }
 
     try {
@@ -540,6 +685,21 @@ module.exports.getDistanceTime = async (origin, destination) => {
         // Fallback to haversine-based estimate.
         console.error('Mappls API error (route):', err?.response?.data || err?.message || err);
 
+        // Prefer OSRM fallback (still no API key), then haversine estimate.
+        try {
+            const originCoord = await module.exports.getAddressCoordinate({
+                address: originAddress,
+                placeId: originPlaceId
+            });
+            const destCoord = await module.exports.getAddressCoordinate({
+                address: destinationAddress,
+                placeId: destinationPlaceId
+            });
+            return await osmRoute({ originCoord, destCoord });
+        } catch (osmErr) {
+            // fall through
+        }
+
         try {
             const originCoord = await module.exports.getAddressCoordinate({
                 address: originAddress,
@@ -578,7 +738,7 @@ module.exports.getAutoCompleteSuggestions = async (input) => {
         throw new Error('query is required');
     }
 
-    // Prefer Google if Mappls OAuth isn't configured.
+    // If Mappls OAuth isn't configured, prefer Google if available, else OSM.
     if (!hasMapplsOAuthCredentials()) {
         const googleKey = getGoogleApiKey();
         if (googleKey) {
@@ -588,6 +748,8 @@ module.exports.getAutoCompleteSuggestions = async (input) => {
                 throw toGoogleApiError(err, 'Unable to fetch suggestions');
             }
         }
+
+        return await osmAutocomplete(input);
     }
 
     try {
@@ -625,7 +787,7 @@ module.exports.getAutoCompleteSuggestions = async (input) => {
             .filter(Boolean);
     } catch (err) {
         console.error('Mappls API error (autosuggest/search):', err?.response?.data || err?.message || err);
-        // Fallback to Google if available.
+        // Fallback to Google if available, else OSM.
         const googleKey = getGoogleApiKey();
         if (googleKey) {
             try {
@@ -634,7 +796,11 @@ module.exports.getAutoCompleteSuggestions = async (input) => {
                 throw toGoogleApiError(googleErr, 'Unable to fetch suggestions');
             }
         }
-        throw toMapplsApiError(err, 'Unable to fetch suggestions');
+        try {
+            return await osmAutocomplete(input);
+        } catch (osmErr) {
+            throw toMapplsApiError(err, 'Unable to fetch suggestions');
+        }
     }
 }
 

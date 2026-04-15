@@ -37,8 +37,10 @@ const LocationSearchPanel = ({
                 setDestinationPlaceId(placeId);
             }
         }
-        // setVehiclePanel(true)
-        // setPanelOpen(false)
+
+        if (typeof setPanelOpen === 'function') {
+            setPanelOpen(false)
+        }
     }
 
     return (
