@@ -13,6 +13,12 @@ import CaptainProtectWrapper from './pages/CaptainProtectWrapper'
 import CaptainLogout from './pages/CaptainLogout'
 import Riding from './pages/Riding'
 import CaptainRiding from './pages/CaptainRiding'
+import ShopkeeperLogin from './pages/ShopkeeperLogin'
+import ShopkeeperSignup from './pages/ShopkeeperSignup'
+import ShopkeeperHome from './pages/ShopkeeperHome'
+import ShopkeeperProtectWrapper from './pages/ShopkeeperProtectWrapper'
+import ShopkeeperLogout from './pages/ShopkeeperLogout'
+import Delivery from './pages/Delivery'
 import 'remixicon/fonts/remixicon.css'
 
 const App = () => {
@@ -22,12 +28,30 @@ const App = () => {
       <Routes>
         <Route path='/' element={<Start />} />
         <Route path='/login' element={<UserLogin />} />
+        <Route path='/delivery' element={
+          <UserProtectWrapper>
+            <Delivery />
+          </UserProtectWrapper>
+        } />
         <Route path='/riding' element={<Riding />} />
         <Route path='/captain-riding' element={<CaptainRiding />} />
 
         <Route path='/signup' element={<UserSignup />} />
         <Route path='/captain-login' element={<Captainlogin />} />
         <Route path='/captain-signup' element={<CaptainSignup />} />
+
+        <Route path='/shopkeeper-login' element={<ShopkeeperLogin />} />
+        <Route path='/shopkeeper-signup' element={<ShopkeeperSignup />} />
+        <Route path='/shopkeeper-home' element={
+          <ShopkeeperProtectWrapper>
+            <ShopkeeperHome />
+          </ShopkeeperProtectWrapper>
+        } />
+        <Route path='/shopkeeper/logout' element={
+          <ShopkeeperProtectWrapper>
+            <ShopkeeperLogout />
+          </ShopkeeperProtectWrapper>
+        } />
         <Route path='/home'
           element={
             <UserProtectWrapper>

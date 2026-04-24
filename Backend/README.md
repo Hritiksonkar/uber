@@ -218,6 +218,74 @@ Retrieves the profile information of the currently authenticated captain.
 
 ### HTTP Method
 
+
+---
+
+# Shopkeeper + Delivery Feature
+
+## Shopkeeper Auth
+
+### `POST /shopkeepers/register`
+
+Registers a shopkeeper (and their shop details).
+
+Request body:
+- `fullname.firstname` (string)
+- `fullname.lastname` (string, optional)
+- `email` (string)
+- `phone` (string)
+- `password` (string)
+- `shop.name` (string)
+- `shop.address` (string)
+
+Response:
+- `token`
+- `shopkeeper`
+
+### `POST /shopkeepers/login`
+
+Login shopkeeper.
+
+### `GET /shopkeepers/profile`
+
+Auth required: `Authorization: Bearer <token>`
+
+## Shops (User)
+
+### `GET /shops`
+
+Auth required (User token). Returns list of registered shops.
+
+## Delivery Requests
+
+### `POST /delivery-requests/create`
+
+Auth required (User token). Creates a delivery request and sends an email to the shopkeeper (best-effort).
+
+Request body:
+- `shopkeeperId` (MongoId)
+- `dropoffAddress` (string)
+- `vehicleType` (optional: `auto|car|moto`)
+- `note` (optional)
+
+### `GET /delivery-requests/shopkeeper`
+
+Auth required (Shopkeeper token). Lists delivery requests for that shop.
+
+### `POST /delivery-requests/:requestId/accept`
+
+Auth required (Shopkeeper token). Accepts the delivery request, creates a normal Ride, and emits `new-ride` to captains.
+
+## Email (SMTP)
+
+To enable shopkeeper email notifications, configure these environment variables:
+- `SMTP_HOST`
+- `SMTP_PORT`
+- `SMTP_USER`
+- `SMTP_PASS`
+- `SMTP_FROM` (optional)
+
+
 `GET`
 
 ### Authentication

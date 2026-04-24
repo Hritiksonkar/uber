@@ -235,7 +235,13 @@ const Home = () => {
 
     return (
         <div className='h-screen relative overflow-hidden'>
-            <div className='absolute left-5 top-5 z-40 text-2xl font-semibold'>Ride Booking</div>
+            <div className='absolute left-5 right-5 top-5 z-40 flex items-center justify-between'>
+                <div className='text-2xl font-semibold'>Ride Booking</div>
+                <button
+                    onClick={() => navigate('/delivery')}
+                    className='bg-white px-3 py-2 rounded-lg text-sm font-medium'
+                >Request Delivery</button>
+            </div>
             <div className='h-screen w-screen relative z-0'>
                 {/* image for temporary use  */}
                 <LiveTracking />

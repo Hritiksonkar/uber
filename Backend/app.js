@@ -18,8 +18,11 @@ const cookieParser = require('cookie-parser');
 const connectToDb = require('./db/db');
 const userRoutes = require('./routes/user.routes');
 const captainRoutes = require('./routes/captain.routes');
+const shopkeeperRoutes = require('./routes/shopkeeper.routes');
 const mapsRoutes = require('./routes/maps.routes');
 const rideRoutes = require('./routes/ride.routes');
+const shopsRoutes = require('./routes/shops.routes');
+const deliveryRequestRoutes = require('./routes/deliveryRequest.routes');
 
 connectToDb();
 
@@ -36,8 +39,12 @@ app.get('/', (req, res) => {
 
 app.use('/users', userRoutes);
 app.use('/captains', captainRoutes);
+app.use('/shopkeepers', shopkeeperRoutes);
 app.use('/maps', mapsRoutes);
 app.use('/rides', rideRoutes);
+
+app.use('/shops', shopsRoutes);
+app.use('/delivery-requests', deliveryRequestRoutes);
 
 
 

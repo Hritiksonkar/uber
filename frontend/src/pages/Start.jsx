@@ -10,6 +10,11 @@ const Start = () => {
         <div className='bg-white pb-8 py-4 px-4'>
           <h2 className='text-[30px] font-semibold'>Get Started with Ride Booking</h2>
           <Link to='/login' className='flex items-center justify-center w-full bg-black text-white py-3 rounded-lg mt-5'>Continue</Link>
+          <div className='mt-4 text-sm text-center'>
+            <Link to='/shopkeeper-login' className='text-blue-600'>Shopkeeper Login</Link>
+            <span className='mx-2 text-gray-400'>|</span>
+            <Link to='/shopkeeper-signup' className='text-blue-600'>Shopkeeper Register</Link>
+          </div>
         </div>
       </div>
     </div>
